@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cube Runner 3D</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="ui-shell">
+      <header class="hud">
+        <h1>Cube Runner 3D</h1>
+        <div class="stats">
+          <span>Distance: <strong id="distance">0</strong>m</span>
+          <span>Pièces: <strong id="coins">0</strong></span>
+          <span>Vitesse: <strong id="speed">1.0x</strong></span>
+        </div>
+      </header>
+
+      <canvas id="game" width="960" height="540" aria-label="Zone de jeu"></canvas>
+
+      <section class="controls">
+        <p><kbd>←</kbd> <kbd>→</kbd> se déplacer · <kbd>Space</kbd> / <kbd>↑</kbd> sauter</p>
+        <button id="restart" hidden>Rejouer</button>
+      </section>
+    </main>
+
+    <script src="game.js"></script>
+  </body>
+</html>
