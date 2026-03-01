@@ -4,7 +4,69 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cube Runner 3D</title>
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="./style.css" />
+    <style>
+      /* Fallback critique si style.css ne charge pas */
+      :root {
+        color-scheme: dark;
+        --bg-top: #0d1028;
+        --bg-bottom: #05060f;
+        --text: #f2f5ff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Inter, Segoe UI, Roboto, sans-serif;
+        background: radial-gradient(circle at 20% 10%, #1b2b5f, transparent 35%),
+          linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+        color: var(--text);
+        display: grid;
+        place-items: center;
+      }
+
+      .ui-shell {
+        width: min(100vw, 1080px);
+        padding: 1rem;
+      }
+
+      .hud {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 0.75rem;
+      }
+
+      .stats {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        font-size: 0.95rem;
+        color: #dbe1ff;
+      }
+
+      #game {
+        width: 100%;
+        border-radius: 14px;
+        border: 1px solid #2f3a79;
+        box-shadow: 0 16px 35px rgb(0 0 0 / 40%);
+        background: linear-gradient(180deg, #182352, #090b17);
+      }
+
+      .controls {
+        margin-top: 0.75rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
+        color: #c9d3ff;
+      }
+    </style>
   </head>
   <body>
     <main class="ui-shell">
@@ -13,7 +75,6 @@
         <div class="stats">
           <span>Distance: <strong id="distance">0</strong>m</span>
           <span>Pièces: <strong id="coins">0</strong></span>
-          <span>Vitesse: <strong id="speed">1.0x</strong></span>
         </div>
       </header>
 
@@ -25,6 +86,6 @@
       </section>
     </main>
 
-    <script src="game.js"></script>
+    <script src="./game.js"></script>
   </body>
 </html>
