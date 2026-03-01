@@ -8,10 +8,17 @@ const restartBtn = document.getElementById('restart');
 
 const laneX = [-1, 0, 1];
 const roadHalfWidth = 1.7;
+const obstacleConfig = {
+  lookAhead: 90,
+  minSpacing: 12,
+  randomSpacing: 10,
+  safeGapEvery: 5,
+};
+
 const world = {
   speed: 8,
   baseSpeed: 8,
-  accel: 0.2,
+  accel: 0.13,
   distance: 0,
   coins: 0,
   running: true,
@@ -25,8 +32,11 @@ const world = {
   collectibles: [],
   segments: [],
   spawnZ: 42,
-  nextObstacle: 0,
+  nextObstacle: 16,
   nextCoin: 0,
+  obstacleCount: 0,
+  lastObstacleLane: 1,
+  safeLane: 1,
 };
 
 const keys = new Set();
@@ -66,10 +76,20 @@ function resetGame() {
     vy: 0,
     obstacles: [],
     collectibles: [],
-    nextObstacle: 0,
+    nextObstacle: 16,
     nextCoin: 0,
+    obstacleCount: 0,
+    lastObstacleLane: 1,
+    safeLane: 1,
   });
   restartBtn.hidden = true;
+}
+
+function pickObstacleLane() {
+  const lanes = [0, 1, 2].filter((lane) => lane !== world.safeLane && lane !== world.lastObstacleLane);
+  const fallbackLanes = [0, 1, 2].filter((lane) => lane !== world.safeLane);
+  const source = lanes.length ? lanes : fallbackLanes;
+  return source[Math.floor(Math.random() * source.length)];
 }
 
 function project(x, y, z) {
@@ -81,12 +101,19 @@ function project(x, y, z) {
 }
 
 function spawnObjects() {
-  while (world.nextObstacle < world.distance + 130) {
-    const z = world.nextObstacle + 20 + Math.random() * 10;
+  while (world.nextObstacle < world.distance + obstacleConfig.lookAhead) {
+    const z = world.nextObstacle + obstacleConfig.minSpacing + Math.random() * obstacleConfig.randomSpacing;
     world.nextObstacle = z;
+    world.obstacleCount += 1;
+
+    if (world.obstacleCount % obstacleConfig.safeGapEvery === 0) {
+      world.safeLane = Math.floor(Math.random() * 3);
+      continue;
+    }
 
     const typeRoll = Math.random();
-    const lane = Math.floor(Math.random() * 3);
+    const lane = pickObstacleLane();
+    world.lastObstacleLane = lane;
     if (typeRoll < 0.34) {
       world.obstacles.push({ type: 'wall', lane, z, h: 1.4 });
     } else if (typeRoll < 0.67) {
@@ -96,8 +123,8 @@ function spawnObjects() {
     }
   }
 
-  while (world.nextCoin < world.distance + 120) {
-    const z = world.nextCoin + 10 + Math.random() * 8;
+  while (world.nextCoin < world.distance + 80) {
+    const z = world.nextCoin + 16 + Math.random() * 14;
     world.nextCoin = z;
     world.collectibles.push({ lane: Math.floor(Math.random() * 3), z, y: 0.6 + Math.random() * 0.6 });
   }
