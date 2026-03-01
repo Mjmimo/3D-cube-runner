@@ -42,13 +42,14 @@ const keys = new Set();
 
 
 function cleanupLegacyUi() {
-  const speedStat = document.getElementById('speed')?.closest('span');
+  const speedNode = document.getElementById('speed');
+  const speedStat = speedNode && speedNode.closest ? speedNode.closest('span') : null;
   if (speedStat) {
     speedStat.remove();
   }
 
   const legacyError = Array.from(document.querySelectorAll('p')).find((el) =>
-    el.textContent?.includes('Erreur: game.js introuvable.'),
+    el.textContent && el.textContent.includes('Erreur: game.js introuvable.'),
   );
   if (legacyError) {
     legacyError.remove();
