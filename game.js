@@ -3,15 +3,21 @@ const ctx = canvas.getContext('2d');
 
 const distanceEl = document.getElementById('distance');
 const coinsEl = document.getElementById('coins');
-const speedEl = document.getElementById('speed');
 const restartBtn = document.getElementById('restart');
 
 const laneX = [-1, 0, 1];
 const roadHalfWidth = 1.7;
+const obstacleConfig = {
+  lookAhead: 90,
+  minSpacing: 12,
+  randomSpacing: 10,
+  safeGapEvery: 5,
+};
+
 const world = {
   speed: 8,
   baseSpeed: 8,
-  accel: 0.2,
+  accel: 0.13,
   distance: 0,
   coins: 0,
   running: true,
@@ -25,11 +31,32 @@ const world = {
   collectibles: [],
   segments: [],
   spawnZ: 42,
-  nextObstacle: 0,
+  nextObstacle: 16,
   nextCoin: 0,
+  obstacleCount: 0,
+  lastObstacleLane: 1,
+  safeLane: 1,
 };
 
 const keys = new Set();
+
+
+function cleanupLegacyUi() {
+  const speedStat = document.getElementById('speed')?.closest('span');
+  if (speedStat) {
+    speedStat.remove();
+  }
+
+  const legacyError = Array.from(document.querySelectorAll('p')).find((el) =>
+    el.textContent?.includes('Erreur: game.js introuvable.'),
+  );
+  if (legacyError) {
+    legacyError.remove();
+  }
+}
+
+cleanupLegacyUi();
+
 
 document.addEventListener('keydown', (e) => {
   if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'Space'].includes(e.code)) {
@@ -66,27 +93,98 @@ function resetGame() {
     vy: 0,
     obstacles: [],
     collectibles: [],
-    nextObstacle: 0,
+    nextObstacle: 16,
     nextCoin: 0,
+    obstacleCount: 0,
+    lastObstacleLane: 1,
+    safeLane: 1,
   });
   restartBtn.hidden = true;
 }
 
+function pickObstacleLane() {
+  const lanes = [0, 1, 2].filter((lane) => lane !== world.safeLane && lane !== world.lastObstacleLane);
+  const fallbackLanes = [0, 1, 2].filter((lane) => lane !== world.safeLane);
+  const source = lanes.length ? lanes : fallbackLanes;
+  return source[Math.floor(Math.random() * source.length)];
+}
+
 function project(x, y, z) {
-  const depth = Math.max(0.1, z + 5);
-  const scale = 320 / depth;
-  const screenX = canvas.width * 0.5 + x * scale * 100;
-  const screenY = canvas.height * 0.72 - y * scale * 100;
-  return { x: screenX, y: screenY, s: scale };
+  const depth = Math.max(1, z + 6);
+  const perspective = 1 / depth;
+  const screenX = canvas.width * 0.5 + x * perspective * canvas.width * 0.9;
+  const screenY = canvas.height * 0.58 + perspective * canvas.height * 2.8 - y * perspective * canvas.height * 1.3;
+  return { x: screenX, y: screenY, s: perspective * 10 };
+}
+
+function drawBackground(horizon) {
+  const sky = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  sky.addColorStop(0, '#071126');
+  sky.addColorStop(0.45, '#1a335f');
+  sky.addColorStop(0.78, '#6d4f7a');
+  sky.addColorStop(1, '#1a1d34');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const moonX = canvas.width * 0.78;
+  const moonY = horizon * 0.5;
+  const moonGlow = ctx.createRadialGradient(moonX, moonY, 8, moonX, moonY, 120);
+  moonGlow.addColorStop(0, 'rgba(255,246,220,0.85)');
+  moonGlow.addColorStop(1, 'rgba(255,246,220,0)');
+  ctx.fillStyle = moonGlow;
+  ctx.beginPath();
+  ctx.arc(moonX, moonY, 120, 0, Math.PI * 2);
+  ctx.fill();
+
+  for (let i = 0; i < 85; i += 1) {
+    const x = (i * 149) % canvas.width;
+    const y = 18 + ((i * 83) % Math.floor(horizon * 0.95));
+    const twinkle = 0.35 + 0.45 * (0.5 + Math.sin(world.time * 1.9 + i * 0.7) * 0.5);
+    ctx.fillStyle = `rgba(255,255,255,${twinkle.toFixed(3)})`;
+    ctx.fillRect(x, y, 1.5, 1.5);
+  }
+
+  const mountainLayers = [
+    { baseY: horizon + 40, amp: 24, freq: 0.009, color: '#18233f' },
+    { baseY: horizon + 68, amp: 34, freq: 0.013, color: '#121b33' },
+    { baseY: horizon + 100, amp: 18, freq: 0.02, color: '#0c1429' },
+  ];
+
+  for (const layer of mountainLayers) {
+    ctx.fillStyle = layer.color;
+    ctx.beginPath();
+    ctx.moveTo(0, canvas.height);
+    for (let x = 0; x <= canvas.width; x += 8) {
+      const ridge = Math.sin((x + world.distance * 3) * layer.freq) * layer.amp;
+      const detail = Math.cos((x + world.distance * 1.5) * layer.freq * 2.5) * (layer.amp * 0.35);
+      ctx.lineTo(x, layer.baseY + ridge + detail);
+    }
+    ctx.lineTo(canvas.width, canvas.height);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  const fog = ctx.createLinearGradient(0, horizon * 0.75, 0, canvas.height);
+  fog.addColorStop(0, 'rgba(230,190,170,0.12)');
+  fog.addColorStop(1, 'rgba(20,20,34,0.45)');
+  ctx.fillStyle = fog;
+  ctx.fillRect(0, horizon * 0.75, canvas.width, canvas.height);
 }
 
 function spawnObjects() {
-  while (world.nextObstacle < world.distance + 130) {
-    const z = world.nextObstacle + 20 + Math.random() * 10;
+  while (world.nextObstacle < world.distance + obstacleConfig.lookAhead) {
+    const z = world.nextObstacle + obstacleConfig.minSpacing + Math.random() * obstacleConfig.randomSpacing;
     world.nextObstacle = z;
+    world.obstacleCount += 1;
+
+    if (world.obstacleCount % obstacleConfig.safeGapEvery === 0) {
+      world.safeLane = Math.floor(Math.random() * 3);
+      continue;
+    }
 
     const typeRoll = Math.random();
-    const lane = Math.floor(Math.random() * 3);
+    const lane = pickObstacleLane();
+    world.lastObstacleLane = lane;
     if (typeRoll < 0.34) {
       world.obstacles.push({ type: 'wall', lane, z, h: 1.4 });
     } else if (typeRoll < 0.67) {
@@ -96,8 +194,8 @@ function spawnObjects() {
     }
   }
 
-  while (world.nextCoin < world.distance + 120) {
-    const z = world.nextCoin + 10 + Math.random() * 8;
+  while (world.nextCoin < world.distance + 80) {
+    const z = world.nextCoin + 16 + Math.random() * 14;
     world.nextCoin = z;
     world.collectibles.push({ lane: Math.floor(Math.random() * 3), z, y: 0.6 + Math.random() * 0.6 });
   }
@@ -125,7 +223,6 @@ function update(dt) {
   spawnObjects();
 
   const playerZ = 4;
-  const playerX = laneX[world.playerLane];
 
   world.obstacles = world.obstacles.filter((o) => o.z > world.distance - 5);
   world.collectibles = world.collectibles.filter((c) => c.z > world.distance - 5);
@@ -154,7 +251,6 @@ function update(dt) {
 
   distanceEl.textContent = Math.floor(world.distance);
   coinsEl.textContent = world.coins;
-  speedEl.textContent = `${(world.speed / world.baseSpeed).toFixed(1)}x`;
 }
 
 function gameOver() {
@@ -175,12 +271,8 @@ function drawCube(x, y, z, size, color) {
 function render() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  const horizon = canvas.height * 0.3;
-  const sky = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  sky.addColorStop(0, '#293e96');
-  sky.addColorStop(1, '#080a16');
-  ctx.fillStyle = sky;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const horizon = canvas.height * 0.34;
+  drawBackground(horizon);
 
   for (let i = 0; i < 80; i += 1) {
     const z = i * 2;
