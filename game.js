@@ -3,7 +3,6 @@ const ctx = canvas.getContext('2d');
 
 const distanceEl = document.getElementById('distance');
 const coinsEl = document.getElementById('coins');
-const speedEl = document.getElementById('speed');
 const restartBtn = document.getElementById('restart');
 
 const laneX = [-1, 0, 1];
@@ -40,6 +39,25 @@ const world = {
 };
 
 const keys = new Set();
+
+
+function cleanupLegacyUi() {
+  const speedNode = document.getElementById('speed');
+  const speedStat = speedNode && speedNode.closest ? speedNode.closest('span') : null;
+  if (speedStat) {
+    speedStat.remove();
+  }
+
+  const legacyError = Array.from(document.querySelectorAll('p')).find((el) =>
+    el.textContent && el.textContent.includes('Erreur: game.js introuvable.'),
+  );
+  if (legacyError) {
+    legacyError.remove();
+  }
+}
+
+cleanupLegacyUi();
+
 
 document.addEventListener('keydown', (e) => {
   if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'Space'].includes(e.code)) {
@@ -234,7 +252,6 @@ function update(dt) {
 
   distanceEl.textContent = Math.floor(world.distance);
   coinsEl.textContent = world.coins;
-  speedEl.textContent = `${(world.speed / world.baseSpeed).toFixed(1)}x`;
 }
 
 function gameOver() {
